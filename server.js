@@ -13,52 +13,45 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const TIMEOUT = 5000; // 5 seconds execution limit
+const TIMEOUT = 5000;
 
-app.post('/run', async (req, res) => {
+app.post('/run', (req, res) => {
   const { code } = req.body;
   const requestId = uuidv4();
   const workDir = path.join(__dirname, 'temp', requestId);
 
-  try {
-    // 1. Setup workspace
-    if (!fs.existsSync(workDir)) {
-      fs.mkdirSync(workDir, { recursive: true });
+  if (!fs.existsSync(workDir)) {
+    fs.mkdirSync(workDir, { recursive: true });
+  }
+
+  const filePath = path.join(workDir, 'Main.java');
+  fs.writeFileSync(filePath, code);
+
+  // Compile
+  exec(`javac "${filePath}"`, { timeout: TIMEOUT }, (compileErr, stdout, stderr) => {
+    if (compileErr || stderr) {
+      cleanUp(workDir);
+      return res.json({ 
+        success: false, 
+        error: stderr || compileErr.message 
+      });
     }
 
-    const filePath = path.join(workDir, 'Main.java');
-    fs.writeFileSync(filePath, code);
+    // Run
+    exec(`java -cp "${workDir}" Main`, { timeout: TIMEOUT }, (runErr, runStat, runStderr) => {
+      const result = runStat || runStderr;
+      cleanUp(workDir);
 
-    // 2. Compile
-    exec(`javac "${filePath}"`, { timeout: TIMEOUT }, (compileErr, stdout, stderr) => {
-      if (compileErr || stderr) {
-        cleanUp(workDir);
-        return res.json({ 
-          success: false, 
-          error: stderr || compileErr.message 
-        });
+      if (runErr && runErr.killed) {
+        return res.json({ success: false, error: "Execution Timed Out (Max 5s)" });
       }
 
-      // 3. Run
-      const child = exec(`java -cp "${workDir}" Main`, { timeout: TIMEOUT }, (runErr, runStat, runStderr) => {
-        const output = runStat || runStderr;
-        cleanUp(workDir);
-
-        if (runErr && runErr.killed) {
-          return res.json({ success: false, error: "Execution Timed Out (Max 5s)" });
-        }
-
-        res.json({
-          success: true,
-          output: output.toString()
-        });
+      res.json({
+        success: true,
+        output: result.toString()
       });
     });
-
-  } catch (err) {
-    cleanUp(workDir);
-    res.status(500).json({ success: false, error: err.message });
-  }
+  });
 });
 
 function cleanUp(dir) {
@@ -66,12 +59,10 @@ function cleanUp(dir) {
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
-  } catch (e) {
-    console.error("Cleanup error:", e);
-  }
+  } catch (e) {}
 }
 
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Java Runner Backend active on port ${PORT}`);
 });
