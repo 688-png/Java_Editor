@@ -1,33 +1,33 @@
-# JavaLab
+# JavaLab - Online Java Editor
 
-A modern Java online IDE built with React and Node.js.
+A high-performance Java code runner with syntax highlighting and instant compilation.
 
 ## Prerequisites
 - Node.js installed
-- JDK (Java Development Kit) installed and `javac`/`java` in your PATH.
+- Java JDK installed and `javac/java` available in your system PATH.
 
-## Setup
-1. Install dependencies:
+## Getting Started
+
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. Run the backend server:
-   ```bash
-   npm run server
-   ```
-
-3. In a new terminal, run the frontend:
+2. **Start the Frontend (Vite):**
    ```bash
    npm run dev
    ```
 
-4. Open `http://localhost:5173` in your browser.
+3. **Start the Execution Backend:**
+   ```bash
+   npm run server
+   ```
+
+4. **Open your browser:**
+   Go to `http://localhost:3000`
 
 ## Features
-- Monaco Editor (VS Code style)
-- Java Syntax Highlighting
-- Live Compilation via Node.js backend
-- Secured via temporary file sandboxing and 5s execution timeout
-- LocalStorage session saving
-- Keyboard Shortcut: `Ctrl+Enter` to run code
+- **Monaco Editor:** VS Code-like coding experience.
+- **File Management:** Import from your computer or download your code as `Main.java`.
+- **Session Persistence:** Code is automatically saved to LocalStorage.
+- **Safety:** Backend runs code in isolated temporary directories with a 5s execution limit.

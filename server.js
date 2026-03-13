@@ -1,75 +1,73 @@
 import express from 'express';
 import cors from 'cors';
 import { exec } from 'child_process';
-import fs from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
+import { v4 as uuidv4 } from 'uuid';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
 
-const TEMP_DIR = path.join(__dirname, 'temp');
+const TEMP_BASE = path.join(__dirname, 'temp_runs');
 
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR);
+// Ensure temp directory exists
+async function ensureDir() {
+    try { await fs.mkdir(TEMP_BASE); } catch {}
 }
+ensureDir();
 
-app.post('/run', (req, res) => {
+app.post('/run', async (req, res) => {
     const { code } = req.body;
-    const sessionId = uuidv4();
-    const sessionPath = path.join(TEMP_DIR, sessionId);
+    const runId = uuidv4();
+    const runDir = path.join(TEMP_BASE, runId);
+    const filePath = path.join(runDir, 'Main.java');
 
-    fs.mkdirSync(sessionPath);
+    try {
+        await fs.mkdir(runDir);
+        await fs.writeFile(filePath, code);
 
-    const filePath = path.join(sessionPath, 'Main.java');
-    
-    // 1. Write File
-    fs.writeFileSync(filePath, code);
+        // Limit execution to 5 seconds
+        const TIMEOUT_MS = 5000;
 
-    // 2. Compile
-    exec(`javac "${filePath}"`, { timeout: 5000 }, (compileErr, stdout, stderr) => {
-        if (compileErr || stderr) {
-            cleanUp(sessionPath);
-            return res.json({ 
-                success: false, 
-                error: stderr || compileErr.message 
-            });
-        }
-
-        // 3. Execute
-        // Using -cp to point to the temporary directory
-        exec(`java -cp "${sessionPath}" Main`, { timeout: 5000 }, (runErr, runStdout, runStderr) => {
-            const output = runStdout || runStderr;
-            const error = runErr ? runErr.message : null;
-
-            cleanUp(sessionPath);
-
-            if (runErr && runErr.killed) {
-                return res.json({ success: false, error: "Execution Timed Out (5s limit)" });
+        // Compilation step
+        exec(`javac Main.java`, { cwd: runDir }, (compileError, stdout, stderr) => {
+            if (compileError) {
+                cleanup(runDir);
+                return res.json({ success: false, error: stderr || compileError.message });
             }
 
-            res.json({ 
-                success: !runErr, 
-                output: output,
-                error: error
+            // Execution step
+            const child = exec(`java Main`, { cwd: runDir, timeout: TIMEOUT_MS }, (runError, runStdout, runStderr) => {
+                cleanup(runDir);
+                
+                if (runError && runError.killed) {
+                    return res.json({ success: false, error: 'Execution Timed Out (Max 5s)' });
+                }
+
+                if (runError) {
+                    return res.json({ success: false, error: runStderr || runError.message });
+                }
+
+                res.json({ success: true, output: runStdout + runStderr });
             });
         });
-    });
+    } catch (err) {
+        cleanup(runDir);
+        res.status(500).json({ success: false, error: 'Server Internal Error' });
+    }
 });
 
-function cleanUp(dir) {
+async function cleanup(dir) {
     try {
-        fs.rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-        console.error("Cleanup error:", e);
+        await fs.rm(dir, { recursive: true, force: true });
+    } catch (err) {
+        console.error('Cleanup failed:', err);
     }
 }
 
-app.listen(PORT, () => {
-    console.log(`JavaLab Backend running at http://localhost:${PORT}`);
-});
+const PORT = 5000;
+app.listen(PORT, () => console.log(`Java Execution Server running on port ${PORT}`));
