@@ -1,16 +1,18 @@
-# JavaLab
+# JavaLab - Online Editor
 
-A modern, responsive Java IDE in your browser.
+This is a full-stack Java code runner.
 
-## Fixed Deployment & Issues:
-1.  **Mobile Support**: Adjusted layout from `flex flex-row` to `flex-col md:flex-row`.
-2.  **Vercel/Build Fix**: Added `react` and `react-dom` to regular dependencies (fixed common Vercel build missing dep error).
-3.  **Local Storage**: Integrated `localStorage` to persist code across refreshes.
-4.  **Import/Export**: Added file upload and download functionality for `.java` files.
+## Quick Start
+1. Install dependencies: `npm install`
+2. Start the runner backend: `node server.js`
+3. Start the frontend: `npm run dev`
 
-## Local Setup:
-1. `npm install`
-2. Run backend: `node server.js`
-3. Run frontend: `npm run dev`
+## Deployment
+For Vercel/Netlify, note that standard serverless functions cannot run `javac` or `java` as the JDK is usually not included in the runtime environment. This project works best on a VPS (DigitalOcean/Linode) or Railway.app where you can install a JDK.
 
-Note: The backend requires a local Java JDK installed (`javac` and `java` in PATH). Serverless platforms like Vercel won't run `child_process` execution of Java; for production use, host the backend on a VPS or Docker container with JDK installed.
+## Features
+- Full Monaco Editor with Java Syntax highlighting
+- Responsive mobile/desktop layout
+- LocalStorage persistence
+- Import/Export `.java` files
+- Execution timeouts and sandboxed directory logic

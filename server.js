@@ -6,68 +6,72 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Ensure temp directory exists
-const tempRoot = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempRoot)) {
-    fs.mkdirSync(tempRoot, { recursive: true });
-}
+const TIMEOUT = 5000; // 5 seconds execution limit
 
-app.post('/run', (req, res) => {
-    const { code } = req.body;
-    const runId = uuidv4();
-    const workDir = path.join(tempRoot, runId);
+app.post('/run', async (req, res) => {
+  const { code } = req.body;
+  const requestId = uuidv4();
+  const workDir = path.join(__dirname, 'temp', requestId);
 
-    try {
-        if (!fs.existsSync(workDir)) {
-            fs.mkdirSync(workDir, { recursive: true });
+  try {
+    // 1. Setup workspace
+    if (!fs.existsSync(workDir)) {
+      fs.mkdirSync(workDir, { recursive: true });
+    }
+
+    const filePath = path.join(workDir, 'Main.java');
+    fs.writeFileSync(filePath, code);
+
+    // 2. Compile
+    exec(`javac "${filePath}"`, { timeout: TIMEOUT }, (compileErr, stdout, stderr) => {
+      if (compileErr || stderr) {
+        cleanUp(workDir);
+        return res.json({ 
+          success: false, 
+          error: stderr || compileErr.message 
+        });
+      }
+
+      // 3. Run
+      const child = exec(`java -cp "${workDir}" Main`, { timeout: TIMEOUT }, (runErr, runStat, runStderr) => {
+        const output = runStat || runStderr;
+        cleanUp(workDir);
+
+        if (runErr && runErr.killed) {
+          return res.json({ success: false, error: "Execution Timed Out (Max 5s)" });
         }
 
-        const filePath = path.join(workDir, 'Main.java');
-        fs.writeFileSync(filePath, code);
-
-        // Compilation (Max 5s)
-        exec(`javac Main.java`, { cwd: workDir, timeout: 5000 }, (compileErr, stdout, stderr) => {
-            if (compileErr || stderr) {
-                res.json({ success: false, error: stderr || compileErr.message });
-                cleanUp(workDir);
-                return;
-            }
-
-            // Execution (Max 5s)
-            exec(`java Main`, { cwd: workDir, timeout: 5000 }, (runErr, runStdout, runStderr) => {
-                if (runErr) {
-                    res.json({ success: false, error: runStderr || runErr.message });
-                } else {
-                    res.json({ success: true, output: runStdout });
-                }
-                cleanUp(workDir);
-            });
+        res.json({
+          success: true,
+          output: output.toString()
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: "Internal Server Error" });
-    }
+      });
+    });
+
+  } catch (err) {
+    cleanUp(workDir);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 function cleanUp(dir) {
-    // Small delay to ensure file handles are released
-    setTimeout(() => {
-        try {
-            if (fs.existsSync(dir)) {
-                fs.rmSync(dir, { recursive: true, force: true });
-            }
-        } catch (e) {
-            console.error("Cleanup error:", e);
-        }
-    }, 2000);
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.error("Cleanup error:", e);
+  }
 }
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`JavaLab backend running on port ${PORT}`);
+  console.log(`Java Runner Backend active on port ${PORT}`);
 });

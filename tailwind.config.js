@@ -7,10 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        editor: '#1e1e1e',
-        sidebar: '#252526',
-        terminal: '#0f172a'
-      }
+        background: '#0f172a',
+        editor: '#1e293b',
+        terminal: '#020617'
+      },
+      screens: {
+        'xs': '480px',
+      },
     },
   },
   plugins: [],
