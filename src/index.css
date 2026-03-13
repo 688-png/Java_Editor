@@ -8,22 +8,23 @@
 
 body {
   margin: 0;
-  overflow: hidden;
-  background-color: #0f172a;
+  height: 100vh;
+  width: 100vw;
 }
 
-/* Custom Scrollbar for Terminal */
+#root {
+  height: 100%;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #1e1e1e;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: #333;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #444;
 }

@@ -7,7 +7,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        editor: '#0f172a',
+        editor: '#1e1e1e',
+        sidebar: '#252526',
+        terminal: '#0f172a'
       }
     },
   },
