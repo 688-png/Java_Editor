@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { exec } from 'child_process';
-import { promises as fs } from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,62 +12,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const TEMP_BASE = path.join(__dirname, 'temp_runs');
-
-// Ensure temp directory exists
-async function ensureDir() {
-    try { await fs.mkdir(TEMP_BASE); } catch {}
-}
-ensureDir();
-
-app.post('/run', async (req, res) => {
+app.post('/run', (req, res) => {
     const { code } = req.body;
     const runId = uuidv4();
-    const runDir = path.join(TEMP_BASE, runId);
-    const filePath = path.join(runDir, 'Main.java');
+    const workDir = path.join(__dirname, 'temp', runId);
 
-    try {
-        await fs.mkdir(runDir);
-        await fs.writeFile(filePath, code);
-
-        // Limit execution to 5 seconds
-        const TIMEOUT_MS = 5000;
-
-        // Compilation step
-        exec(`javac Main.java`, { cwd: runDir }, (compileError, stdout, stderr) => {
-            if (compileError) {
-                cleanup(runDir);
-                return res.json({ success: false, error: stderr || compileError.message });
-            }
-
-            // Execution step
-            const child = exec(`java Main`, { cwd: runDir, timeout: TIMEOUT_MS }, (runError, runStdout, runStderr) => {
-                cleanup(runDir);
-                
-                if (runError && runError.killed) {
-                    return res.json({ success: false, error: 'Execution Timed Out (Max 5s)' });
-                }
-
-                if (runError) {
-                    return res.json({ success: false, error: runStderr || runError.message });
-                }
-
-                res.json({ success: true, output: runStdout + runStderr });
-            });
-        });
-    } catch (err) {
-        cleanup(runDir);
-        res.status(500).json({ success: false, error: 'Server Internal Error' });
+    // Create unique temp directory
+    if (!fs.existsSync(workDir)) {
+        fs.mkdirSync(workDir, { recursive: true });
     }
+
+    const filePath = path.join(workDir, 'Main.java');
+    fs.writeFileSync(filePath, code);
+
+    // Compilation Command
+    exec(`javac Main.java`, { cwd: workDir, timeout: 5000 }, (compileErr, stdout, stderr) => {
+        if (compileErr || stderr) {
+            res.json({ success: false, error: stderr || compileErr.message });
+            cleanUp(workDir);
+            return;
+        }
+
+        // Execution Command
+        exec(`java Main`, { cwd: workDir, timeout: 5000 }, (runErr, runStdout, runStderr) => {
+            if (runErr) {
+                res.json({ success: false, error: runStderr || runErr.message });
+            } else {
+                res.json({ success: true, output: runStdout });
+            }
+            cleanUp(workDir);
+        });
+    });
 });
 
-async function cleanup(dir) {
-    try {
-        await fs.rm(dir, { recursive: true, force: true });
-    } catch (err) {
-        console.error('Cleanup failed:', err);
-    }
+function cleanUp(dir) {
+    setTimeout(() => {
+        try {
+            fs.rmSync(dir, { recursive: true, force: true });
+        } catch (e) {
+            console.error("Cleanup error:", e);
+        }
+    }, 1000);
 }
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Java Execution Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`JavaLab backend running on port ${PORT}`);
+});

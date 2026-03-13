@@ -1,12 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
-        editor: '#1e1e1e',
-        sidebar: '#0f172a',
-        terminal: '#000000'
+        editor: '#0f172a',
       }
     },
   },

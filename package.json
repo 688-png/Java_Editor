@@ -1,5 +1,5 @@
 {
-  "name": "javalab-modern",
+  "name": "javalab-web",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -10,11 +10,13 @@
     "server": "node server.js"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.6.0",
-    "axios": "^1.6.2",
-    "lucide-react": "^0.294.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "@monaco-editor/react": "^4.6.0",
+    "lucide-react": "^0.294.0",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
